@@ -1,6 +1,15 @@
 import re
+import pandas as pd
 from collections import defaultdict
-from myenv.kaggle import data, rating, rawData
+
+# Load the dataset
+data_path = "datasets/data.csv"
+rating_path = "datasets/rating.csv"
+rawData_path = "datasets/raw-data.csv"
+
+data = pd.read_csv(data_path)
+rating = pd.read_csv(rating_path)
+rawData = pd.read_csv(rawData_path)
 
 
 #data to tokenise
@@ -32,6 +41,19 @@ def build_inverted_index(articles):
 
     return inverted_index
 
+
+def build_forward_index(articles):
+    forward_index = defaultdict(list)
+
+    for _,row in articles.iterrows():
+        doc_id = row['article_id']
+        content = ' '.join(row[['source_name', 'author', 'title', 'description', 'content', 'category', 'full_content']].dropna())
+
+        tokens = tokenise(content)
+        unique_tokens = set(tokens)     #storing unique tokens for each document
+        forward_index[doc_id] = list(unique_tokens)
+    
+    return forward_index
 
 
 def search_query(query, inverted_index):
