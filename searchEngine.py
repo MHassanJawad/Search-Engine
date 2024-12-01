@@ -1,6 +1,9 @@
 import re
 import pandas as pd
 from collections import defaultdict
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import wordnet
+from nltk import word_tokenize, pos_tag
 
 #load the dataset
 data_path = "datasets/data.csv"
@@ -40,7 +43,7 @@ class Word:
 #initialize an empty dictionary for a lexicon
 lexicon = {}
 
-def add_word_to_lexicon(word, doc_id, count):
+def addToLexicon(word, doc_id, count):
 
     #if the word is not in the lexicon, create a new Word object
     if word not in lexicon:
@@ -50,7 +53,7 @@ def add_word_to_lexicon(word, doc_id, count):
     #add the document and frequency information to the Word object
     lexicon[word].add_document(doc_id, count)
 
-def get_word_info(word):
+def getWordInfo(word):
     if word in lexicon:
         word_obj = lexicon[word]
         return {
@@ -75,7 +78,7 @@ def tokenise(text, doc_id):
 
     #update the lexicon with word frequency and document ID
     for word, count in word_frequency.items():
-        add_word_to_lexicon(word, doc_id, count)
+        addToLexicon(word, doc_id, count)
     
     return words  #return the tokenized words 
 
@@ -90,14 +93,14 @@ def build_inverted_index(articles):
         #use values from these columns for tokenisation
         content = ' '.join(row[['source_name', 'author', 'title', 'description', 'content', 'category', 'full_content']].dropna())
 
-        tokens = tokenise(content, doc_id)  #tokenize the content of the article and update lexicon
+        tokens = tokenise(content, doc_id)  #tokenise the content of the article and update lexicon
         for token in set(tokens):  #avoid duplicates for each document
             inverted_index[token].append(doc_id)  #map the token to the document ID
 
     return inverted_index
 
 #build Forward Index
-def build_forward_index(articles):
+def forwardIndex(articles):
     forward_index = defaultdict(list)
 
     for _, row in articles.iterrows():
@@ -110,37 +113,88 @@ def build_forward_index(articles):
     
     return forward_index
 
-#search Query
-def search_query(query, inverted_index):
-    #processing the query by tokenising it
-    words = tokenise(query, None)  
 
-    #find the documents for each word
-    results = []
-    for word in words:
-        results.append(set(inverted_index.get(word, [])))  # Use sets for intersection later
 
-    #find the documents containing all words
-    if results:
-        final_results = set.intersection(*results)  #documents containing all words
+def get_wordnet_pos(treebank_tag):
+    
+    if treebank_tag.startswith('J'):
+        return wordnet.ADJ
+    elif treebank_tag.startswith('V'):
+        return wordnet.VERB
+    elif treebank_tag.startswith('N'):
+        return wordnet.NOUN
+    elif treebank_tag.startswith('R'):
+        return wordnet.ADV
     else:
-        final_results = set()  #no results if no words in query
+        return wordnet.NOUN  
 
-    return list(final_results)  #convert to list for consistency
+# lemmatization with correct POS
+def lemmatize(word):
+    token = word_tokenize(word)
+    lemmatizer = WordNetLemmatizer()
+    pos_tagged = pos_tag(token)  #get POS tags for the tokenized words
+    lemma = [
+        lemmatizer.lemmatize(word, get_wordnet_pos(tag))
+        for word, tag in pos_tagged
+    ]
+    return " ".join(lemma)
+
+
+
+def get_synonyms(word):
+    synonyms = []
+    for syn in wordnet.synsets(word):
+        for lemma in syn.lemmas():
+            synonyms.append(lemma.name())
+    return set(synonyms)  #return unique synonyms
+
+
+def search_query(query, inverted_index):
+    #tokenise and process the query
+    words = tokenise(query, None)
+
+    results = []
+    
+    lemmatizer = WordNetLemmatizer()
+    
+    for word in words:
+        #search for the original word in the index
+        word_results = set(inverted_index.get(word, []))
+        results.append(word_results)
+
+        #lemmatize the word and search for its lemma
+        lemma = lemmatizer.lemmatize(word)
+        lemma_results = set(inverted_index.get(lemma, []))
+        results.append(lemma_results)
+
+        #get synonyms of the word and search for each synonym
+        synonyms = get_synonyms(word)
+        for synonym in synonyms:
+            synonym_results = set(inverted_index.get(synonym, []))
+            results.append(synonym_results)
+
+    #find documents containing all query terms
+    if results:
+        final_results = set.intersection(*results) if all(results) else set()
+    else:
+        final_results = set()
+
+    return list(final_results)
+
 
 #main function to test the search engine
 if __name__ == "__main__":
-    # Assuming 'data' is your dataset DataFrame, and it has a column 'article_id' for document IDs
+  
     inverted_index = build_inverted_index(data)
 
-    # Get user query
+    # get user query
     query = input("Enter your search query: ")
 
-    # Search the index
+    #search the index
     results = search_query(query, inverted_index)
 
-    # Display the results
+    #diisplay the results
     if results:
-        print("Results found in documents:", results)
+        print("Results found in {len(results)} documents:", {results})
     else:
         print("No results found.")
