@@ -1,15 +1,11 @@
+import json
 import re
-import pandas as pd
 from collections import defaultdict
 
-# Load the dataset
-data_path = "datasets/data.csv"
-rating_path = "datasets/rating.csv"
-rawData_path = "datasets/raw-data.csv"
-
-data = pd.read_csv(data_path)
-rating = pd.read_csv(rating_path)
-rawData = pd.read_csv(rawData_path)
+# File paths for saving indices
+forward_index_file = "datasets/forward_index.json"
+inverted_index_file = "datasets/inverted_index.json"
+lexicon_file = "datasets/lexicon.json"
 
 # Class to store relevant info about a word in a lexicon
 class Word:
@@ -27,78 +23,68 @@ class Word:
             self.documents[doc_id] += count
         self.frequency += count  # Increment total word frequency
 
-    def get_doc_frequency(self):
-        return self.doc_freq
-
-    def get_word_frequency(self):
-        return self.frequency
-
-    def get_documents(self):
-        return self.documents
+    def to_dict(self):
+        return {
+            "word_id": self.word_id,
+            "frequency": self.frequency,
+            "doc_freq": self.doc_freq,
+            "documents": self.documents
+        }
 
 # Initialize an empty dictionary for a lexicon
 lexicon = {}
 
 def add_word_to_lexicon(word, doc_id, count):
     if word not in lexicon:
-        word_id = hash(word) + hash(doc_id)  # Generate a unique ID for each word
+        word_id = hash((word, doc_id))  # Use a tuple to ensure unique hashing
         lexicon[word] = Word(word_id)
     lexicon[word].add_document(doc_id, count)
 
-def get_word_info(word):
-    if word in lexicon:
-        word_obj = lexicon[word]
-        return {
-            "word_id": word_obj.word_id,
-            "frequency": word_obj.get_word_frequency(),
-            "doc_freq": word_obj.get_doc_frequency(),
-            "documents": word_obj.get_documents()
-        }
-    return None
+def lexicon_to_dict():
+    return {word: word_obj.to_dict() for word, word_obj in lexicon.items()}
+
+def load_lexicon(lexicon_dict):
+    global lexicon
+    lexicon = {}
+    for word, word_data in lexicon_dict.items():
+        word_obj = Word(word_data["word_id"])
+        word_obj.frequency = word_data["frequency"]
+        word_obj.doc_freq = word_data["doc_freq"]
+        word_obj.documents = word_data["documents"]
+        lexicon[word] = word_obj
 
 # Tokenization function
-def tokenise(text, doc_id):
+def tokenise(text):
+    """Tokenize text into lowercase words after removing punctuation."""
     text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    words = text.lower().split()  # Tokenize and convert to lowercase
+    return text.lower().split()
 
+def update_lexicon_with_tokens(tokens, doc_id):
+    """Update lexicon with token frequencies for a specific document."""
     word_frequency = defaultdict(int)
-    for word in words:
+    for word in tokens:
         word_frequency[word] += 1
 
-    # Update the lexicon with word frequency and document ID
     for word, count in word_frequency.items():
         add_word_to_lexicon(word, doc_id, count)
-    
-    return words
 
-# Build Inverted Index
-def build_inverted_index(articles):
-    inverted_index = defaultdict(list)
-
-    for _, row in articles.iterrows():
-        doc_id = row['article_id']  # Get the article ID
-        content = ' '.join(row[['source_name', 'author', 'title', 'description', 'content', 'category', 'full_content']].dropna())  # Combine content
-        tokens = tokenise(content, doc_id)  # Tokenize the content and update lexicon
-        for token in set(tokens):  # Avoid duplicates for each document
-            inverted_index[token].append(doc_id)
-
-    return inverted_index
-
-# Build Forward Index
-def build_forward_index(articles):
-    forward_index = defaultdict(list)
-
-    for _, row in articles.iterrows():
-        doc_id = row['article_id']
-        content = ' '.join(row[['source_name', 'author', 'title', 'description', 'content', 'category', 'full_content']].dropna())
-        tokens = tokenise(content, doc_id)
-        forward_index[doc_id] = list(set(tokens))  # Store unique tokens for each document
-
-    return forward_index
+# Load indices from JSON files
+def load_indices():
+    try:
+        with open(forward_index_file, "r") as f:
+            forward_index = json.load(f)
+        with open(inverted_index_file, "r") as f:
+            inverted_index = json.load(f)
+        with open(lexicon_file, "r") as f:
+            load_lexicon(json.load(f))
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("Error: Index files not found or invalid. Please generate indices first.")
+        return None, None
+    return forward_index, inverted_index
 
 # Search Query
 def search_query(query, inverted_index):
-    words = tokenise(query, None)  # Tokenize the query
+    words = tokenise(query)  # Tokenize the query
     results = [set(inverted_index.get(word, [])) for word in words]  # Find the documents for each word
 
     if results:
@@ -110,8 +96,11 @@ def search_query(query, inverted_index):
 
 # Main function to test the search engine
 if __name__ == "__main__":
-    inverted_index = build_inverted_index(data)
+    forward_index, inverted_index = load_indices()
+    if forward_index is None or inverted_index is None:
+        exit("Exiting program due to missing or invalid indices.")
 
+    print("Loaded indices from files.")
     # Get user query
     query = input("Enter your search query: ")
 
