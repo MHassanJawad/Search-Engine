@@ -30,7 +30,7 @@ def load_indices():
         print("Error: Index files not found or invalid. Please generate indices first.")
         return None, None
     return forward_index, inverted_index
-
+#dummy indices added
 def generate_dummy_indices():
     """Generate dummy indices for demonstration purposes."""
     print("Generating dummy indices...")
