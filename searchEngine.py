@@ -31,6 +31,21 @@ def load_indices():
         return None, None
     return forward_index, inverted_index
 
+def generate_dummy_indices():
+    """Generate dummy indices for demonstration purposes."""
+    print("Generating dummy indices...")
+    documents = {
+        "doc1": "The quick brown fox jumps over the lazy dog",
+        "doc2": "Python is a programming language",
+        "doc3": "Search engines use inverted indices"
+    }
+    forward_index = {doc_id: tokenise(content) for doc_id, content in documents.items()}
+    inverted_index = defaultdict(list)
+    for doc_id, tokens in forward_index.items():
+        for token in tokens:
+            inverted_index[token].append(doc_id)
+    return forward_index, dict(inverted_index)
+
 # Search Query
 def search_query(query, inverted_index):
     words = tokenise(query)  # Tokenize and lemmatize the query
