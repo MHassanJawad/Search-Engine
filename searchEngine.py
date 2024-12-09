@@ -59,4 +59,4 @@ if __name__ == "__main__":
     if results:
         print(f"Results found in {len(results)} documents: {results}")
     else:
-        print("No results found.")
+        print("No results found.") 
