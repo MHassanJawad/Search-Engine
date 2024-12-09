@@ -2,6 +2,15 @@ import json
 import re
 import pandas as pd
 from collections import defaultdict
+from nltk.stem import WordNetLemmatizer
+import nltk
+
+# Download WordNet data if not already downloaded
+# nltk.download('wordnet')
+# nltk.download('omw-1.4')
+
+# Initialize lemmatizer
+lemmatizer = WordNetLemmatizer()
 
 # Load the dataset
 data_path = "datasets/data.csv"
@@ -48,20 +57,23 @@ def add_word_to_lexicon(word, doc_id, count):
 def lexicon_to_dict():
     return {word: word_obj.to_dict() for word, word_obj in lexicon.items()}
 
-# Tokenization function
+# Tokenization function with lemmatization
 def tokenise(text, doc_id):
     text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
     words = text.lower().split()  # Tokenize and convert to lowercase
 
+    # Lemmatize each word
+    lemmatized_words = [lemmatizer.lemmatize(word) for word in words]
+
     word_frequency = defaultdict(int)
-    for word in words:
+    for word in lemmatized_words:
         word_frequency[word] += 1
 
     # Update the lexicon with word frequency and document ID
     for word, count in word_frequency.items():
         add_word_to_lexicon(word, doc_id, count)
     
-    return words
+    return lemmatized_words
 
 # Build Inverted Index
 def build_inverted_index(articles):
