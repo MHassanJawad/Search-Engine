@@ -11,7 +11,7 @@ barrel_files = ["datasets/barrel_1.json", "datasets/barrel_2.json",
                 "datasets/barrel_5.json"]
 
 # Barrel ranges
-barrel_ranges = [("a", "e"), ("f", "j"), ("k", "o"), ("p", "t"), ("u", "z")]
+barrel_ranges = [("a", "c"), ("d", "g"), ("h", "i"), ("j", "q"), ("r", "z")]
 
 def tokenise(text):
     text = re.sub(r'[^\w\s]', '', text)

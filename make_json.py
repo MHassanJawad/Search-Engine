@@ -19,9 +19,7 @@ barrel_files = ["datasets/barrel_1.json", "datasets/barrel_2.json",
                 "datasets/barrel_5.json"]
 
 # Define barrels based on first letter
-barrel_ranges = [
-    ("a", "e"), ("f", "j"), ("k", "o"), ("p", "t"), ("u", "z")
-]
+barrel_ranges = [("a", "c"), ("d", "g"), ("h", "i"), ("j", "q"), ("r", "z")]
 
 # Class for word metadata in lexicon
 class Word:
