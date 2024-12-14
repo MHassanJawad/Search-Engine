@@ -1,60 +1,52 @@
 import json
 import re
-from collections import defaultdict
 from nltk.stem import WordNetLemmatizer
-import nltk
 
 # Initialize lemmatizer
 lemmatizer = WordNetLemmatizer()
 
-# File paths for saving indices
-forward_index_file = "datasets/forward_index.json"
-inverted_index_file = "datasets/inverted_index.json"
-lexicon_file = "datasets/lexicon.json"
+# Barrel file paths
+barrel_files = ["datasets/barrel_1.json", "datasets/barrel_2.json", 
+                "datasets/barrel_3.json", "datasets/barrel_4.json", 
+                "datasets/barrel_5.json"]
 
-# Tokenization function with lemmatization
+# Barrel ranges
+barrel_ranges = [("a", "e"), ("f", "j"), ("k", "o"), ("p", "t"), ("u", "z")]
+
 def tokenise(text):
-    """Tokenize text into lowercase lemmatized words after removing punctuation."""
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = re.sub(r'[^\w\s]', '', text)
     words = text.lower().split()
-    return [lemmatizer.lemmatize(word) for word in words]  # Lemmatize words
+    return [lemmatizer.lemmatize(word) for word in words]
 
-# Load indices from JSON files
-def load_indices():
-    try:
-        with open(forward_index_file, "r") as f:
-            forward_index = json.load(f)
-        with open(inverted_index_file, "r") as f:
-            inverted_index = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        print("Error: Index files not found or invalid. Please generate indices first.")
-        return None, None
-    return forward_index, inverted_index
+def load_relevant_barrels(query_tokens):
+    relevant_barrels = []
+    for token in query_tokens:
+        first_letter = token[0]
+        for i, (start, end) in enumerate(barrel_ranges):
+            if start <= first_letter <= end:
+                with open(barrel_files[i], "r") as f:
+                    relevant_barrels.append(json.load(f))
+                break
+    return relevant_barrels
 
-# Search Query
-def search_query(query, inverted_index):
-    words = tokenise(query)  # Tokenize and lemmatize the query
-    results = [set(inverted_index.get(word, [])) for word in words]  # Find the documents for each word
+def search_query(query):
+    tokens = tokenise(query)
+    relevant_barrels = load_relevant_barrels(tokens)
+
+    results = []
+    for token in tokens:
+        docs = set()
+        for barrel in relevant_barrels:
+            docs.update(barrel.get(token, []))
+        results.append(docs)
 
     if results:
-        final_results = set.intersection(*results)  # Documents containing all words
-    else:
-        final_results = set()  # No results if no words in query
+        return list(set.intersection(*results))
+    return []
 
-    return list(final_results)
-
-# Main function to test the search engine
 if __name__ == "__main__":
-    forward_index, inverted_index = load_indices()
-    if forward_index is None or inverted_index is None:
-        exit("Exiting program due to missing or invalid indices.")
-
-    print("Loaded indices from files.")
-    # Get user query
     query = input("Enter your search query: ")
-
-    # Search the index
-    results = search_query(query, inverted_index)
+    results = search_query(query)
 
     if results:
         print(f"Results found in {len(results)} documents: {results}")

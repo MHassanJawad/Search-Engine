@@ -3,11 +3,6 @@ import re
 import pandas as pd
 from collections import defaultdict
 from nltk.stem import WordNetLemmatizer
-import nltk
-
-# Download WordNet data if not already downloaded
-# nltk.download('wordnet')
-# nltk.download('omw-1.4')
 
 # Initialize lemmatizer
 lemmatizer = WordNetLemmatizer()
@@ -16,26 +11,33 @@ lemmatizer = WordNetLemmatizer()
 data_path = "datasets/data.csv"
 data = pd.read_csv(data_path)
 
-# File paths for saving indices
+# File paths
 forward_index_file = "datasets/forward_index.json"
-inverted_index_file = "datasets/inverted_index.json"
 lexicon_file = "datasets/lexicon.json"
+barrel_files = ["datasets/barrel_1.json", "datasets/barrel_2.json", 
+                "datasets/barrel_3.json", "datasets/barrel_4.json", 
+                "datasets/barrel_5.json"]
 
-# Class to store relevant info about a word in a lexicon
+# Define barrels based on first letter
+barrel_ranges = [
+    ("a", "e"), ("f", "j"), ("k", "o"), ("p", "t"), ("u", "z")
+]
+
+# Class for word metadata in lexicon
 class Word:
     def __init__(self, word_id):
-        self.word_id = word_id  # Unique ID for the word
-        self.frequency = 0  # Frequency of the word across all documents
-        self.doc_freq = 0  # Number of documents containing this word
-        self.documents = {}  # Dictionary to store document IDs and word frequencies in each document
-    
+        self.word_id = word_id
+        self.frequency = 0
+        self.doc_freq = 0
+        self.documents = {}
+
     def add_document(self, doc_id, count):
         if doc_id not in self.documents:
             self.documents[doc_id] = count
-            self.doc_freq += 1  # Increment document frequency for a new document
+            self.doc_freq += 1
         else:
             self.documents[doc_id] += count
-        self.frequency += count  # Increment total word frequency
+        self.frequency += count
 
     def to_dict(self):
         return {
@@ -45,76 +47,68 @@ class Word:
             "documents": self.documents
         }
 
-# Initialize an empty dictionary for a lexicon
 lexicon = {}
 
 def add_word_to_lexicon(word, doc_id, count):
     if word not in lexicon:
-        word_id = hash(word)  # Generate a unique ID for each word
+        word_id = hash(word)
         lexicon[word] = Word(word_id)
     lexicon[word].add_document(doc_id, count)
 
 def lexicon_to_dict():
     return {word: word_obj.to_dict() for word, word_obj in lexicon.items()}
 
-# Tokenization function with lemmatization
 def tokenise(text, doc_id):
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    words = text.lower().split()  # Tokenize and convert to lowercase
-
-    # Lemmatize each word
+    text = re.sub(r'[^\w\s]', '', text)
+    words = text.lower().split()
     lemmatized_words = [lemmatizer.lemmatize(word) for word in words]
 
     word_frequency = defaultdict(int)
     for word in lemmatized_words:
         word_frequency[word] += 1
 
-    # Update the lexicon with word frequency and document ID
     for word, count in word_frequency.items():
         add_word_to_lexicon(word, doc_id, count)
-    
+
     return lemmatized_words
 
-# Build Inverted Index
-def build_inverted_index(articles):
+def build_indices(articles):
     inverted_index = defaultdict(list)
-
-    for _, row in articles.iterrows():
-        doc_id = row['article_id']  # Get the article ID
-        content = ' '.join(row[['source_name', 'author', 'title', 'description', 
-                                'content', 'category', 'full_content']].dropna())  # Combine content
-        tokens = tokenise(content, doc_id)  # Tokenize the content and update lexicon
-        for token in set(tokens):  # Avoid duplicates for each document
-            inverted_index[token].append(doc_id)
-
-    return inverted_index
-
-# Build Forward Index
-def build_forward_index(articles):
     forward_index = defaultdict(list)
 
     for _, row in articles.iterrows():
         doc_id = row['article_id']
-        content = ' '.join(row[['source_name', 'author', 'title', 'description', 
-                                'content', 'category', 'full_content']].dropna())
+        content = ' '.join(row.dropna().astype(str))
         tokens = tokenise(content, doc_id)
-        forward_index[doc_id] = list(set(tokens))  # Store unique tokens for each document
 
-    return forward_index
+        forward_index[doc_id] = list(set(tokens))
+        for token in set(tokens):
+            inverted_index[token].append(doc_id)
 
-# Save indices to JSON files
-def save_indices(forward_index, inverted_index, lexicon):
+    # Divide inverted index into barrels
+    barrels = [defaultdict(list) for _ in range(len(barrel_ranges))]
+    for word, docs in inverted_index.items():
+        first_letter = word[0]
+        for i, (start, end) in enumerate(barrel_ranges):
+            if start <= first_letter <= end:
+                barrels[i][word] = docs
+                break
+
+    return forward_index, barrels
+
+def save_indices(forward_index, barrels):
     with open(forward_index_file, "w") as f:
         json.dump(forward_index, f)
-    with open(inverted_index_file, "w") as f:
-        json.dump(inverted_index, f)
+
+    for i, barrel in enumerate(barrels):
+        with open(barrel_files[i], "w") as f:
+            json.dump(barrel, f)
+
     with open(lexicon_file, "w") as f:
         json.dump(lexicon_to_dict(), f)
 
-# Main function to generate and save the indices
 if __name__ == "__main__":
     print("Building indices...")
-    forward_index = build_forward_index(data)
-    inverted_index = build_inverted_index(data)
-    save_indices(forward_index, inverted_index, lexicon)
+    forward_index, barrels = build_indices(data)
+    save_indices(forward_index, barrels)
     print("Indices saved to JSON files.")
