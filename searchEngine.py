@@ -159,21 +159,30 @@ def search_query(query, inverted_index):
     
     for word in words:
         #search for the original word in the index
+        print("Query Tokens:", words)
+        print("Query Lemmas:", [lemmatizer.lemmatize(word).lower() for word in words])
+        print("Query Synonyms:", {word: [syn.lower() for syn in get_synonyms(word)] for word in words})
         word_results = set(inverted_index.get(word, []))
         results.append(word_results)
 
         #lemmatize the word and search for its lemma
-        lemma = lemmatizer.lemmatize(word)
+        lemma = lemmatizer.lemmatize(word).lower()
         lemma_results = set(inverted_index.get(lemma, []))
         results.append(lemma_results)
 
         #get synonyms of the word and search for each synonym
         synonyms = get_synonyms(word)
         for synonym in synonyms:
+            synonym = synonym.lower()
+            synonym = re.sub(r'[^\w\s]', '', synonym)
+            synonym = [synonym.replace('_', '') for synonym in synonyms]
+            
             synonym_results = set(inverted_index.get(synonym, []))
             results.append(synonym_results)
 
     #find documents containing all query terms
+    print("Intermediate Results Before Intersection:", results)
+
     if results:
         final_results = set.intersection(*results) if all(results) else set()
     else:
@@ -194,6 +203,10 @@ if __name__ == "__main__":
     results = search_query(query, inverted_index)
 
     #diisplay the results
+    print("Inverted Index Sample:", list(inverted_index.items())[:10])
+   
+
+
     if results:
         print("Results found in {len(results)} documents:", {results})
     else:
