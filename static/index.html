@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Search Engine</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="header">Dynamic Search Engine</h1>
+        <input type="text" id="searchBox" class="search-box" placeholder="Type to search...">
+        <div id="loading" class="loading">Searching...</div>
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        const searchBox = document.getElementById('searchBox');
+        const resultsDiv = document.getElementById('results');
+        const loadingDiv = document.getElementById('loading');
+
+        searchBox.addEventListener('input', async () => {
+            const query = searchBox.value;
+            if (query.length > 0) {
+                loadingDiv.style.display = 'block';  // Show loading indicator
+                const response = await fetch(`/search?q=${query}`);
+                const data = await response.json();
+                displayResults(data.results);
+            } else {
+                resultsDiv.innerHTML = '';
+                loadingDiv.style.display = 'none';  // Hide loading if query is empty
+            }
+        });
+
+        function displayResults(results) {
+            loadingDiv.style.display = 'none'; // Hide loading indicator when results are shown
+            resultsDiv.innerHTML = results.length > 0 ? 
+                results.map(doc => `<div class="result-item"><p>Document ID: <span class="highlight">${doc}</span></p></div>`).join('') : 
+                '<p class="no-results">No results found</p>';
+        }
+    </script>
+</body>
+</html>
