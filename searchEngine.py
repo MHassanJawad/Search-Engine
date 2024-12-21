@@ -31,12 +31,7 @@ def load_indices():
         return None, None
     return forward_index, inverted_index
 
-    forward_index = {doc_id: tokenise(content) for doc_id, content in documents.items()}
-    inverted_index = defaultdict(list)
-    for doc_id, tokens in forward_index.items():
-        for token in tokens:
-            inverted_index[token].append(doc_id)
-    return forward_index, dict(inverted_index)
+
 
 # Search Query
 def search_query(query, inverted_index):
