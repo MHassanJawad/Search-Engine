@@ -30,15 +30,7 @@ def load_indices():
         print("Error: Index files not found or invalid. Please generate indices first.")
         return None, None
     return forward_index, inverted_index
-#dummy indices added
-def generate_dummy_indices():
-    """Generate dummy indices for demonstration purposes."""
-    print("Generating dummy indices...")
-    documents = {
-        "doc1": "The quick brown fox jumps over the lazy dog",
-        "doc2": "Python is a programming language",
-        "doc3": "Search engines use inverted indices"
-    }
+
     forward_index = {doc_id: tokenise(content) for doc_id, content in documents.items()}
     inverted_index = defaultdict(list)
     for doc_id, tokens in forward_index.items():
