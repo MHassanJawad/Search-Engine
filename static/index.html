@@ -10,16 +10,18 @@
     <div class="container">
         <h1 class="header">Swift News</h1>
         <input type="text" id="searchBox" class="search-box" placeholder="Type to search...">
+        <button id="searchButton" class="search-button">Search</button>
         <div id="loading" class="loading">Searching...</div>
         <div id="results" class="results"></div>
     </div>
 
     <script>
         const searchBox = document.getElementById('searchBox');
+        const searchButton = document.getElementById('searchButton');
         const resultsDiv = document.getElementById('results');
         const loadingDiv = document.getElementById('loading');
 
-        searchBox.addEventListener('input', async () => {
+        searchButton.addEventListener('click', async () => {
             const query = searchBox.value;
             if (query.length > 0) {
                 loadingDiv.style.display = 'block';  // Show loading indicator
@@ -35,7 +37,12 @@
         function displayResults(results) {
             loadingDiv.style.display = 'none'; // Hide loading indicator when results are shown
             resultsDiv.innerHTML = results.length > 0 ? 
-                results.map(doc => `<div class="result-item"><p>Document ID: <span class="highlight">${doc}</span></p></div>`).join('') : 
+                results.map(doc => `
+                    <div class="result-item">
+                        <p><strong>${doc.title || 'No Title Available'}</strong></p>
+                        <p>${doc.description || 'No Description Available'}</p>
+                        <p>Document ID: <span class="highlight">${doc.doc_id}</span></p>
+                    </div>`).join('') : 
                 '<p class="no-results">No results found</p>';
         }
     </script>
