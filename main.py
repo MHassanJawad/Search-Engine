@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from search_engine import search_query
 import math
+from search_engine import search_query  # Assuming this is your core search function
 
 app = FastAPI()
 
@@ -35,15 +35,16 @@ def search(q: str = Query(..., min_length=1)):
     try:
         # Fetch search results from search_query function
         results = search_query(q)
-        
+
         # Handle case where no results are found
-        if not results:
-            return JSONResponse(content={"results": [], "message": "No results found."})
-        
+        if isinstance(results, dict) and "message" in results:
+            return JSONResponse(content={"results": [], "message": results["message"]})
+
         # Sanitize results to avoid non-serializable data types
         sanitized_results = sanitize_data(results)
-        
+
         # Return sanitized results
         return JSONResponse(content={"results": sanitized_results})
     except Exception as e:
+        print(f"Error occurred: {str(e)}")  # Debug logging
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")

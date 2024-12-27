@@ -9,8 +9,10 @@
 <body>
     <div class="container">
         <h1 class="header">Swift News</h1>
-        <input type="text" id="searchBox" class="search-box" placeholder="Type to search...">
-        <button id="searchButton" class="search-button">Search</button>
+        <div class="search-container">
+            <input type="text" id="searchBox" class="search-box" placeholder="Type to search...">
+            <button id="searchButton" class="search-button">Search</button>
+        </div>
         <div id="loading" class="loading">Searching...</div>
         <div id="results" class="results"></div>
     </div>
@@ -21,29 +23,48 @@
         const resultsDiv = document.getElementById('results');
         const loadingDiv = document.getElementById('loading');
 
-        searchButton.addEventListener('click', async () => {
-            const query = searchBox.value;
-            if (query.length > 0) {
-                loadingDiv.style.display = 'block';  // Show loading indicator
-                const response = await fetch(`/search?q=${query}`);
-                const data = await response.json();
-                displayResults(data.results);
-            } else {
-                resultsDiv.innerHTML = '';
-                loadingDiv.style.display = 'none';  // Hide loading if query is empty
+        searchButton.addEventListener('click', search);
+        searchBox.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                search();
             }
         });
 
+        async function search() {
+            const query = searchBox.value.trim();
+            if (query.length > 0) {
+                loadingDiv.style.display = 'block';
+                resultsDiv.innerHTML = '';
+                try {
+                    const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                    if (!response.ok) throw new Error('Failed to fetch results');
+                    const data = await response.json();
+                    displayResults(data.results);
+                } catch (error) {
+                    console.error(error);
+                    resultsDiv.innerHTML = '<p class="error">An error occurred. Please try again later.</p>';
+                } finally {
+                    loadingDiv.style.display = 'none';
+                }
+            } else {
+                resultsDiv.innerHTML = '<p class="error">Please enter a search term.</p>';
+            }
+        }
+
         function displayResults(results) {
-            loadingDiv.style.display = 'none'; // Hide loading indicator when results are shown
-            resultsDiv.innerHTML = results.length > 0 ? 
-                results.map(doc => `
+            resultsDiv.innerHTML = results.length > 0
+                ? results.map(doc => `
                     <div class="result-item">
-                        <p><strong>${doc.title || 'No Title Available'}</strong></p>
-                        <p>${doc.description || 'No Description Available'}</p>
-                        <p>Document ID: <span class="highlight">${doc.doc_id}</span></p>
-                    </div>`).join('') : 
-                '<p class="no-results">No results found</p>';
+                        ${doc.url_to_image ? `<img src="${doc.url_to_image}" alt="Image for ${doc.title}" class="result-image">` : ''}
+                        <div class="result-content">
+                            <a href="${doc.url}" target="_blank">
+                                <p><strong>${doc.title || 'No Title Available'}</strong></p>
+                            </a>
+                            <p>${doc.description || 'No Description Available'}</p>
+                            <p>Word Frequency: ${doc.count}</p>
+                        </div>
+                    </div>`).join('')
+                : '<p class="no-results">No results found</p>';
         }
     </script>
 </body>
