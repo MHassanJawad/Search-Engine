@@ -3,6 +3,7 @@ import re
 import pandas as pd
 from collections import defaultdict
 from nltk.stem import WordNetLemmatizer
+from langdetect import detect, LangDetectException
 
 # Initialize lemmatizer
 lemmatizer = WordNetLemmatizer()
@@ -43,6 +44,17 @@ def build_indices(articles):
     for _, row in articles.iterrows():
         doc_id = str(row['article_id'])  # Ensure doc_id is a string
         title = row.get('title', '')
+        
+        # Detect language of title
+        try:
+            title_lang = detect(str(title))  # Convert title to string to prevent errors
+        except LangDetectException:
+            title_lang = 'unknown'
+
+        # Skip the document if the title language is not English
+        if title_lang != 'en':
+            continue
+
         description = row.get('description', '')
         content = ' '.join(row.dropna().astype(str))
         url = row.get('url')
