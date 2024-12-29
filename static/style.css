@@ -1,0 +1,125 @@
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f8f9fa;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    height: 100vh;
+    color: #333;
+    overflow-y: auto;
+}
+
+.container {
+    text-align: center;
+    background-color: white;
+    padding: 40px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 1000px;
+    overflow: hidden;
+}
+
+.header {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    color: #007bff;
+}
+
+.search-container {
+    display: flex; /* Use flexbox to place input and button side by side */
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.search-box {
+    width: 80%; /* Adjust width of the input */
+    padding: 12px;
+    font-size: 16px;
+    border: 2px solid #ccc;
+    border-radius: 6px 0 0 6px; /* Rounded left corner for the input */
+}
+
+.search-button {
+    padding: 12px 20px;
+    font-size: 16px;
+    border: 2px solid #007bff;
+    border-left: none; /* Removes border on the left to align with the input */
+    border-radius: 0 6px 6px 0; /* Rounded right corner for the button */
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+.search-button:hover {
+    background-color: #0056b3;
+}
+
+.loading {
+    display: none;
+    font-size: 1.1rem;
+    color: #007bff;
+    margin-top: 10px;
+}
+
+.results {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #085bea;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    background-color: #f1f1f1;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    gap: 15px;
+}
+
+.result-item .result-content {
+    flex: 1;
+}
+
+.result-item a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.result-item a:hover {
+    text-decoration: underline;
+}
+
+.result-image {
+    width: 150px;
+    height: 150px;
+    border-radius: 6px;
+    object-fit: cover;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.no-results {
+    font-size: 1.1rem;
+    color: #999;
+}
+
+.highlight {
+    font-weight: bold;
+    color: #ff6347;
+}
+
+
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}
