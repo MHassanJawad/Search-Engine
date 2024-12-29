@@ -45,15 +45,16 @@ def calculate_bm25_score(term, doc_id, inverted_index, avg_doc_len, doc_lengths,
     denominator = term_freq + k1 * (1 - b + b * (doc_len / avg_doc_len))
     return idf * (numerator / denominator)
 
-# Function to apply spell correction using TextBlob
-def correct_query_with_textblob(query):
-    # Correct the whole query using TextBlob
-    corrected_query = " ".join([Word(word).spellcheck()[0][0] for word in tokenise(query)])
-    return corrected_query
+def correct_query_with_textblob(token):
+    try:
+        return Word(token).spellcheck()[0][0]  # Get the most likely corrected word
+    except Exception as e:
+        print(f"Error correcting token '{token}': {e}")
+        return token  # Return the original token if correction fails
+
 
 def search_query(query):
-    def perform_search(query):
-        tokens = tokenise(query)
+    def perform_search(tokens):
         relevant_barrels = load_relevant_barrels(tokens)
         if not relevant_barrels:
             return []
@@ -67,7 +68,7 @@ def search_query(query):
         results_bm25 = defaultdict(float)  # BM25 scores
         results_freq = defaultdict(int)   # Frequency scores
 
-        # Process query with corrected tokens
+        # Process tokens
         for token in tokens:
             for barrel in relevant_barrels:
                 if token not in barrel:
@@ -115,16 +116,18 @@ def search_query(query):
 
         return search_results
 
-    # Perform the initial search with the original query
-    results = perform_search(query)
+    # Tokenize the query
+    tokens = tokenise(query)
 
-    # If no results found, try correcting the query with TextBlob and perform the search again
+    # Perform the initial search with the original tokens
+    results = perform_search(tokens)
+
+    # If no results found, try correcting each token and perform the search again
     if not results:
-        corrected_query = correct_query_with_textblob(query)
-        print(f"Original query: {query}")
-        print(f"Corrected query: {corrected_query}")
-        results = perform_search(corrected_query)
+        corrected_tokens = [correct_query_with_textblob(token) for token in tokens]
+        print(f"Original tokens: {tokens}")
+        print(f"Corrected tokens: {corrected_tokens}")
+        results = perform_search(corrected_tokens)
 
     # Return total results count and results list
     return {"total_results": len(results), "results": results}
-
