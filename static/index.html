@@ -52,20 +52,25 @@
         }
 
         function displayResults(results) {
-            resultsDiv.innerHTML = results.length > 0
-                ? results.map(doc => `
+            const resultsCount = results.length;
+            const countText = resultsCount > 0 
+                ? `<p class="results-count">${resultsCount} result(s) found</p>` 
+                : '<p class="no-results">No results found</p>';
+
+            resultsDiv.innerHTML = `
+                ${countText}
+                ${resultsCount > 0 ? results.map(doc => `
                     <div class="result-item">
-                        ${doc.url_to_image ? `<img src="${doc.url_to_image}" alt="Image for ${doc.title}" class="result-image">` : ''}
                         <div class="result-content">
                             <a href="${doc.url}" target="_blank">
                                 <p><strong>${doc.title || 'No Title Available'}</strong></p>
                             </a>
                             <p>${doc.description || 'No Description Available'}</p>
-                            <p>Word Frequency: ${doc.count}</p>
                         </div>
-                    </div>`).join('')
-                : '<p class="no-results">No results found</p>';
+                    </div>`).join('') : ''}
+            `;
         }
+
     </script>
 </body>
 </html>

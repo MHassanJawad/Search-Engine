@@ -22,6 +22,8 @@ def read_root():
 # Function to sanitize the data (for NaN or other invalid values)
 def sanitize_data(data):
     if isinstance(data, dict):
+        # Remove 'url_to_image' key if present
+        data.pop("url_to_image", None)
         return {key: sanitize_data(value) for key, value in data.items()}
     elif isinstance(data, list):
         return [sanitize_data(item) for item in data]
