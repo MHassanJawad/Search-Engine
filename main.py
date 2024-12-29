@@ -29,22 +29,20 @@ def sanitize_data(data):
         return None  # Replace NaN with None or any placeholder you prefer
     return data
 
-# Search API endpoint
 @app.get("/search")
 def search(q: str = Query(..., min_length=1), page: int = Query(1, ge=1), page_size: int = Query(10, ge=1)):
     try:
-        # Fetch all search results
-        results = search_query(q)
-        all_results = sanitize_data(results)
+        # Fetch search results and total count
+        search_result = search_query(q)
+        all_results = sanitize_data(search_result["results"])
+        total_results = search_result["total_results"]
+
         # Calculate start and end indices for pagination
         start = (page - 1) * page_size
         end = start + page_size
 
         # Paginate results
         paginated_results = all_results[start:end]
-
-        # Total results count
-        total_results = len(all_results)
 
         return JSONResponse(content={
             "results": paginated_results,

@@ -14,6 +14,7 @@
             <button id="searchButton" class="search-button">Search</button>
         </div>
         <div id="loading" class="loading">Searching...</div>
+        <div id="result-info" class="result-info"></div> <!-- Added this div for results count and time -->
         <div id="results" class="results"></div>
         <div id="pagination" class="pagination"></div>
     </div>
@@ -23,6 +24,7 @@
         const searchButton = document.getElementById('searchButton');
         const resultsDiv = document.getElementById('results');
         const loadingDiv = document.getElementById('loading');
+        const resultInfoDiv = document.getElementById('result-info'); // New result info div
         const paginationDiv = document.getElementById('pagination');
 
         let allResults = []; // Store all search results
@@ -37,30 +39,43 @@
         });
 
         async function search() {
-            const query = searchBox.value.trim();
-            if (query.length > 0) {
-                loadingDiv.style.display = 'block';
-                resultsDiv.innerHTML = '';
-                paginationDiv.innerHTML = '';
-                allResults = []; // Clear previous results
-                currentPage = 1; // Reset to the first page
+    const query = searchBox.value.trim();
+    if (query.length > 0) {
+        loadingDiv.style.display = 'block';
+        resultsDiv.innerHTML = '';
+        resultInfoDiv.innerHTML = ''; // Clear previous result info
+        paginationDiv.innerHTML = '';
+        allResults = []; // Clear previous results
+        currentPage = 1; // Reset to the first page
 
-                try {
-                    const response = await fetch(`/search?q=${encodeURIComponent(query)}&page_size=100`); // Fetch all results
-                    if (!response.ok) throw new Error('Failed to fetch results');
-                    const data = await response.json();
-                    allResults = data.results; // Save all results
-                    displayPage(1); // Display the first page
-                } catch (error) {
-                    console.error(error);
-                    resultsDiv.innerHTML = '<p class="error">An error occurred. Please try again later.</p>';
-                } finally {
-                    loadingDiv.style.display = 'none';
-                }
-            } else {
-                resultsDiv.innerHTML = '<p class="error">Please enter a search term.</p>';
-            }
+        const startTime = performance.now(); // Start timing the search
+
+        try {
+            const response = await fetch(`/search?q=${encodeURIComponent(query)}&page=${currentPage}&page_size=${pageSize}`); // Fetch results for the current page
+            if (!response.ok) throw new Error('Failed to fetch results');
+            const data = await response.json();
+            
+            allResults = data.results; // Save results for the current page
+            const totalResults = data.total_results; // Use total_results from the API response
+            
+            const endTime = performance.now(); // End timing the search
+            const timeTaken = ((endTime - startTime) / 1000).toFixed(2); // Time in seconds
+            
+            // Display total results and time taken
+            resultInfoDiv.innerHTML = `<p>${totalResults} results found in ${timeTaken} seconds</p>`;
+
+            displayPage(1); // Display the first page
+        } catch (error) {
+            console.error(error);
+            resultsDiv.innerHTML = '<p class="error">An error occurred. Please try again later.</p>';
+        } finally {
+            loadingDiv.style.display = 'none';
         }
+    } else {
+        resultsDiv.innerHTML = '<p class="error">Please enter a search term.</p>';
+    }
+}
+
 
         function displayPage(page) {
             const startIndex = (page - 1) * pageSize;

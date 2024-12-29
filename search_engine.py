@@ -51,9 +51,7 @@ def correct_query_with_textblob(query):
     corrected_query = " ".join([Word(word).spellcheck()[0][0] for word in tokenise(query)])
     return corrected_query
 
-# Search Query Function
 def search_query(query):
-    # Function to perform the actual search
     def perform_search(query):
         tokens = tokenise(query)
         relevant_barrels = load_relevant_barrels(tokens)
@@ -127,8 +125,6 @@ def search_query(query):
         print(f"Corrected query: {corrected_query}")
         results = perform_search(corrected_query)
 
-    # If still no results, return "No results found"
-    if not results:
-        return "No results found"
+    # Return total results count and results list
+    return {"total_results": len(results), "results": results}
 
-    return results
