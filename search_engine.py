@@ -83,7 +83,7 @@ def search_query(query):
 
                     # Frequency-based Score (higher score for title matches)
                     results_freq[doc_id] += freq
-                    title = doc_metadata.get(str(doc_id), {}).get("title", "").lower()
+                    title = str(doc_metadata.get(str(doc_id), {}).get("title", "")).lower()
                     if token in title:
                         results_freq[doc_id] += freq  # Boost frequency score for title matches
 
