@@ -3,11 +3,28 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import math
 from search_engine import search_query  # Assuming this is your core search function
+from pydantic import BaseModel
+from typing import Optional, List
 
 app = FastAPI()
 
 # Serve static files (like index.html)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+class Article(BaseModel):
+    article_id: Optional[str] = None
+    source_id: Optional[str] = None
+    source_name: Optional[str] = None
+    author: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    url: Optional[str] = None
+    url_to_image: Optional[str] = None
+    published_at: Optional[str] = None
+    content: Optional[str] = None
+    category: Optional[str] = None
+    full_content: Optional[str] = None
+
 
 # Serve the HTML page
 @app.get("/", response_class=HTMLResponse)
@@ -52,4 +69,25 @@ def search(q: str = Query(..., min_length=1), page: int = Query(1, ge=1), page_s
         })
     except Exception as e:
         print(f"Error occurred: {str(e)}")  # Debug logging
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@app.post("/add-articles")
+def add_article(articles: List[Article]):
+    # Iterate over the list of articles and print the data for each one
+    for article in articles:
+        print("Received article data:", article.dict())
+    
+    try:
+        # Process each article
+        for article in articles:
+            # Convert Article object to dict
+            article_data = article.dict()
+
+            # Add the article to the system (assuming you have this function)
+            from make_json import add_article
+            add_article(article_data)
+
+        return {"message": "Articles added successfully!"}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
