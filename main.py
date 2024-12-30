@@ -83,8 +83,7 @@ def add_article(articles: List[Article]):
         for article in articles:
             # Convert Article object to dict
             article_data = article.dict()
-
-            # Add the article to the system (assuming you have this function)
+            
             from make_json import add_article
             add_article(article_data)
 
