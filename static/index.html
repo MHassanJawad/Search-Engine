@@ -32,7 +32,6 @@
             background-color: #0056b3;
         }
 
-        /* Hidden file input */
         #fileInput {
             display: none;
         }
@@ -42,13 +41,10 @@
     <div class="container">
         <h1 class="header">Swift News</h1>
         <div class="add-article-container">
-            <!-- Hidden file input -->
             <input type="file" id="fileInput" accept=".csv, .xlsx, .xls" required>
-            <!-- The button to trigger file input -->
             <button class="add-article-button" id="addArticleButton">Add Article</button>
             <div id="uploadResult" class="result-info"></div>
         </div>
-        <!-- Search Section -->
         <div class="search-container">
             <input type="text" id="searchBox" class="search-box" placeholder="Type to search...">
             <button id="searchButton" class="search-button">Search</button>
@@ -56,22 +52,14 @@
         <div id="loading" class="loading">Searching...</div>
         <div id="result-info" class="result-info"></div>
         <div id="results" class="results"></div>
-        <div id="pagination" class="pagination"></div>
-        
     </div>
 
     <script>
-        // Search functionality
         const searchBox = document.getElementById('searchBox');
         const searchButton = document.getElementById('searchButton');
         const resultsDiv = document.getElementById('results');
         const loadingDiv = document.getElementById('loading');
         const resultInfoDiv = document.getElementById('result-info');
-        const paginationDiv = document.getElementById('pagination');
-
-        let allResults = []; // Store all search results
-        let currentPage = 1; // Current page number
-        const pageSize = 10; // Number of results per page
 
         searchButton.addEventListener('click', () => search());
         searchBox.addEventListener('keydown', (event) => {
@@ -85,27 +73,24 @@
             if (query.length > 0) {
                 loadingDiv.style.display = 'block';
                 resultsDiv.innerHTML = '';
-                resultInfoDiv.innerHTML = ''; 
-                paginationDiv.innerHTML = '';
-                allResults = [];
-                currentPage = 1;
+                resultInfoDiv.innerHTML = '';
 
                 const startTime = performance.now();
 
                 try {
-                    const response = await fetch(`/search?q=${encodeURIComponent(query)}&page=${currentPage}&page_size=${pageSize}`);
+                    const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
                     if (!response.ok) throw new Error('Failed to fetch results');
                     const data = await response.json();
 
-                    allResults = data.results;
+                    const allResults = data.results;
                     const totalResults = data.total_results;
 
                     const endTime = performance.now();
                     const timeTaken = ((endTime - startTime) / 1000).toFixed(2);
 
-                    resultInfoDiv.innerHTML = `<p>${totalResults} results found in ${timeTaken} seconds`;
+                    resultInfoDiv.innerHTML = `<p>${totalResults} results found in ${timeTaken} seconds</p>`;
 
-                    displayPage(1); 
+                    displayAllResults(allResults);
                 } catch (error) {
                     console.error(error);
                     resultsDiv.innerHTML = '<p class="error">An error occurred. Please try again later.</p>';
@@ -117,13 +102,9 @@
             }
         }
 
-        function displayPage(page) {
-            const startIndex = (page - 1) * pageSize;
-            const endIndex = Math.min(startIndex + pageSize, allResults.length);
-            const resultsForPage = allResults.slice(startIndex, endIndex);
-
-            resultsDiv.innerHTML = resultsForPage.length > 0
-                ? resultsForPage.map(doc => `
+        function displayAllResults(results) {
+            resultsDiv.innerHTML = results.length > 0
+                ? results.map(doc => `
                     <div class="result-item">
                         ${doc.url_to_image ? `<img src="${doc.url_to_image}" alt="Image for ${doc.title}" class="result-image">` : ''}
                         <div class="result-content">
@@ -134,57 +115,20 @@
                         </div>
                     </div>`).join('')
                 : '<p class="no-results">No results found</p>';
-
-            renderPagination();
         }
 
-        function renderPagination() {
-            paginationDiv.innerHTML = '';
-            const totalPages = Math.ceil(allResults.length / pageSize);
-
-            if (totalPages > 1) {
-                if (currentPage > 1) {
-                    const prevButton = createPaginationButton('Previous', () => {
-                        currentPage--;
-                        displayPage(currentPage);
-                    });
-                    paginationDiv.appendChild(prevButton);
-                }
-
-                if (currentPage < totalPages) {
-                    const nextButton = createPaginationButton('Next', () => {
-                        currentPage++;
-                        displayPage(currentPage);
-                    });
-                    paginationDiv.appendChild(nextButton);
-                }
-            }
-        }
-
-        function createPaginationButton(text, onClick) {
-            const button = document.createElement('button');
-            button.innerText = text;
-            button.className = 'pagination-button search-button';
-            button.onclick = onClick;
-            return button;
-        }
-
-        // File upload and parsing
         const addArticleButton = document.getElementById('addArticleButton');
         const fileInput = document.getElementById('fileInput');
         const uploadResult = document.getElementById('uploadResult');
 
-        // Trigger file input when the button is clicked
         addArticleButton.addEventListener('click', () => {
-            fileInput.click(); // This triggers the file input dialog
+            fileInput.click();
         });
 
         fileInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
-
             if (file) {
                 const fileExtension = file.name.split('.').pop().toLowerCase();
-
                 if (fileExtension === 'csv') {
                     parseCSV(file);
                 } else if (['xls', 'xlsx'].includes(fileExtension)) {
@@ -196,11 +140,9 @@
         });
 
         function parseCSV(file) {
-            
             const reader = new FileReader();
             reader.onload = function(event) {
                 const csvData = event.target.result;
-                console.log("Raw CSV data:", csvData);
                 Papa.parse(csvData, {
                     complete: function(results) {
                         processCsvData(results.data);
@@ -215,82 +157,42 @@
             reader.onload = function(event) {
                 const data = new Uint8Array(event.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-
-                // Get the first sheet name and sheet object
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
-
-                // Convert the sheet to JSON (this is an array of objects)
                 const jsonData = XLSX.utils.sheet_to_json(sheet);
-
-                console.log("Processed Excel data:", jsonData); // To inspect the data structure
-
-                processExcelData(jsonData); // Call the same function to process the data
+                processExcelData(jsonData);
             };
             reader.readAsArrayBuffer(file);
         }
 
-
         function processExcelData(data) {
-    console.log("Processed data:", data);
-
-    // Process each row in the data
-    const articles = data.map(row => {
-        return {
-            article_id: String(row['article_id']),
-            source_id: row['source_id'],
-            source_name: row['source_name'],
-            author: row['author'],
-            title: row['title'],
-            description: row['description'],
-            url: row['url'],
-            url_to_image: row['url_to_image'],
-            published_at: row['published_at'],
-            content: row['content'],
-            category: row['category'],
-            full_content: row['full_content'],
-        };
-    });
-
-    console.log("Formatted Articles:", articles);
-    uploadArticles(articles);  // Upload the articles to the server
-}
+            const articles = data.map(row => ({
+                article_id: String(row['article_id']),
+                source_id: row['source_id'],
+                source_name: row['source_name'],
+                author: row['author'],
+                title: row['title'],
+                description: row['description'],
+                url: row['url'],
+                url_to_image: row['url_to_image'],
+                published_at: row['published_at'],
+                content: row['content'],
+                category: row['category'],
+                full_content: row['full_content'],
+            }));
+            uploadArticles(articles);
+        }
 
         function processCsvData(data) {
-            console.log("Processed CSV data:", data);
-
-            // Assuming the first row is the header row
-            const headerRow = data[0][0].split(','); // Split the header row into individual column names
-
-            // Process each row in the CSV (excluding the header row)
+            const headerRow = data[0][0].split(',');
             const articles = data.slice(1).map(row => {
-                // Split each row by comma to get individual fields
                 const fields = row[0].split(',');
-
-                // Map the fields to the corresponding headers (assuming the header row has the field names)
                 const article = {};
                 headerRow.forEach((header, index) => {
-                    article[header.trim()] = fields[index] ? fields[index].trim() : null; // Trim and assign values
+                    article[header.trim()] = fields[index] ? fields[index].trim() : null;
                 });
-
-                // Return the article object
-                return {
-                    article_id: article['article_id'],
-                    source_id: article['source_id'],
-                    source_name: article['source_name'],
-                    author: article['author'],
-                    title: article['title'],
-                    description: article['description'],
-                    url: article['url'],
-                    url_to_image: article['url_to_image'],
-                    published_at: article['published_at'],
-                    content: article['content'],
-                    category: article['category'],
-                    full_content: article['full_content'],
-                };
+                return article;
             });
-
-            console.log("Formatted Articles:", articles);
             uploadArticles(articles);
         }
 
@@ -300,11 +202,8 @@
                 const response = await fetch('/add-articles', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify( articles ),
+                    body: JSON.stringify(articles),
                 });
-
-                if (!response.ok) throw new Error('Failed to upload articles');
-
                 const result = await response.json();
                 uploadResult.innerHTML = `<p>${result.message}</p>`;
             } catch (error) {

@@ -59,7 +59,7 @@ def search(q: str = Query(..., min_length=1), page: int = Query(1, ge=1), page_s
         end = start + page_size
 
         # Paginate results
-        paginated_results = all_results[start:end]
+        paginated_results = all_results
 
         return JSONResponse(content={
             "results": paginated_results,
