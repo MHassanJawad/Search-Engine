@@ -1,120 +1,98 @@
+"""Build barrel indexes and document metadata from a news CSV file."""
+
+from __future__ import annotations
+
+import argparse
+import csv
 import json
-import re
-import pandas as pd
-from collections import defaultdict
-from nltk.stem import WordNetLemmatizer
-import nltk
+import sys
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Any, Iterable
 
-# Download WordNet data if not already downloaded
-# nltk.download('wordnet')
-# nltk.download('omw-1.4')
+from text_processing import singular_candidate, tokenize
 
-# Initialize lemmatizer
-lemmatizer = WordNetLemmatizer()
+BASE_DIR = Path(__file__).resolve().parent
+TEXT_FIELDS = ("source_name", "author", "title", "description", "content", "category", "full_content")
+METADATA_FIELDS = ("title", "description", "url", "url_to_image")
 
-# Load the dataset
-data_path = "datasets/data.csv"
-data = pd.read_csv(data_path)
 
-# File paths for saving indices
-forward_index_file = "datasets/forward_index.json"
-inverted_index_file = "datasets/inverted_index.json"
-lexicon_file = "datasets/lexicon.json"
+def normalized_tokens(row: dict[str, str]) -> list[str]:
+    text = " ".join(row.get(field) or "" for field in TEXT_FIELDS)
+    return [singular_candidate(token) for token in tokenize(text)]
 
-# Class to store relevant info about a word in a lexicon
-class Word:
-    def __init__(self, word_id):
-        self.word_id = word_id  # Unique ID for the word
-        self.frequency = 0  # Frequency of the word across all documents
-        self.doc_freq = 0  # Number of documents containing this word
-        self.documents = {}  # Dictionary to store document IDs and word frequencies in each document
-    
-    def add_document(self, doc_id, count):
-        if doc_id not in self.documents:
-            self.documents[doc_id] = count
-            self.doc_freq += 1  # Increment document frequency for a new document
-        else:
-            self.documents[doc_id] += count
-        self.frequency += count  # Increment total word frequency
 
-    def to_dict(self):
-        return {
-            "word_id": self.word_id,
-            "frequency": self.frequency,
-            "doc_freq": self.doc_freq,
-            "documents": self.documents
-        }
+def build_indices(rows: Iterable[dict[str, str]], limit: int | None = None):
+    forward_index: dict[str, list[str]] = {}
+    barrels: dict[str, Any] = {
+        **{letter: defaultdict(dict) for letter in "abcdefghijklmnopqrstuvwxyz"},
+        "other": defaultdict(dict),
+    }
+    metadata: dict[str, dict[str, str]] = {}
+    doc_lengths: dict[str, int] = {}
 
-# Initialize an empty dictionary for a lexicon
-lexicon = {}
+    for position, row in enumerate(rows, start=1):
+        if limit is not None and position > limit:
+            break
+        doc_id = str(row.get("article_id") or "").strip()
+        if not doc_id:
+            raise ValueError(f"Row {position + 1} has no article_id")
+        if doc_id in metadata:
+            raise ValueError(f"Duplicate article_id {doc_id!r} at row {position + 1}")
 
-def add_word_to_lexicon(word, doc_id, count):
-    if word not in lexicon:
-        word_id = hash(word)  # Generate a unique ID for each word
-        lexicon[word] = Word(word_id)
-    lexicon[word].add_document(doc_id, count)
+        tokens = normalized_tokens(row)
+        counts = Counter(tokens)
+        forward_index[doc_id] = sorted(counts)
+        doc_lengths[doc_id] = len(tokens)
+        metadata[doc_id] = {field: str(row.get(field) or "") for field in METADATA_FIELDS}
+        for token, count in counts.items():
+            name = token[0] if token and "a" <= token[0] <= "z" else "other"
+            barrels[name][token][doc_id] = count
+        if position % 10_000 == 0:
+            print(f"Indexed {position:,} documents...", flush=True)
 
-def lexicon_to_dict():
-    return {word: word_obj.to_dict() for word, word_obj in lexicon.items()}
+    return forward_index, barrels, metadata, doc_lengths
 
-# Tokenization function with lemmatization
-def tokenise(text, doc_id):
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    words = text.lower().split()  # Tokenize and convert to lowercase
 
-    # Lemmatize each word
-    lemmatized_words = [lemmatizer.lemmatize(word) for word in words]
+def write_json(path: Path, value: object) -> None:
+    with path.open("w", encoding="utf-8") as file:
+        json.dump(value, file, ensure_ascii=False, separators=(",", ":"))
 
-    word_frequency = defaultdict(int)
-    for word in lemmatized_words:
-        word_frequency[word] += 1
 
-    # Update the lexicon with word frequency and document ID
-    for word, count in word_frequency.items():
-        add_word_to_lexicon(word, doc_id, count)
-    
-    return lemmatized_words
+def generate(data_path: Path, output_dir: Path, limit: int | None = None) -> int:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with data_path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        if reader.fieldnames is None or "article_id" not in reader.fieldnames:
+            raise ValueError("CSV must have a header containing article_id")
+        forward, barrels, metadata, lengths = build_indices(reader, limit)
 
-# Build Inverted Index
-def build_inverted_index(articles):
-    inverted_index = defaultdict(list)
+    write_json(output_dir / "forward_index.json", forward)
+    for name, barrel in barrels.items():
+        write_json(output_dir / f"barrel_{name}.json", barrel)
+    write_json(output_dir / "doc_metadata.json", metadata)
+    write_json(output_dir / "doc_lengths.json", lengths)
+    return len(metadata)
 
-    for _, row in articles.iterrows():
-        doc_id = row['article_id']  # Get the article ID
-        content = ' '.join(row[['source_name', 'author', 'title', 'description', 
-                                'content', 'category', 'full_content']].dropna())  # Combine content
-        tokens = tokenise(content, doc_id)  # Tokenize the content and update lexicon
-        for token in set(tokens):  # Avoid duplicates for each document
-            inverted_index[token].append(doc_id)
 
-    return inverted_index
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", type=Path, default=BASE_DIR / "datasets" / "data.csv", help="input CSV")
+    parser.add_argument("--output", type=Path, default=BASE_DIR / "datasets", help="index output directory")
+    parser.add_argument("--limit", type=int, default=None, help="index only the first N rows")
+    return parser.parse_args()
 
-# Build Forward Index
-def build_forward_index(articles):
-    forward_index = defaultdict(list)
 
-    for _, row in articles.iterrows():
-        doc_id = row['article_id']
-        content = ' '.join(row[['source_name', 'author', 'title', 'description', 
-                                'content', 'category', 'full_content']].dropna())
-        tokens = tokenise(content, doc_id)
-        forward_index[doc_id] = list(set(tokens))  # Store unique tokens for each document
-
-    return forward_index
-
-# Save indices to JSON files
-def save_indices(forward_index, inverted_index, lexicon):
-    with open(forward_index_file, "w") as f:
-        json.dump(forward_index, f)
-    with open(inverted_index_file, "w") as f:
-        json.dump(inverted_index, f)
-    with open(lexicon_file, "w") as f:
-        json.dump(lexicon_to_dict(), f)
-
-# Main function to generate and save the indices
 if __name__ == "__main__":
-    print("Building indices...")
-    forward_index = build_forward_index(data)
-    inverted_index = build_inverted_index(data)
-    save_indices(forward_index, inverted_index, lexicon)
-    print("Indices saved to JSON files.")
+    try:
+        csv.field_size_limit(sys.maxsize)
+    except OverflowError:
+        csv.field_size_limit(2**31 - 1)
+    args = parse_args()
+    if args.limit is not None and args.limit < 1:
+        raise SystemExit("--limit must be at least 1")
+    try:
+        count = generate(args.data.resolve(), args.output.resolve(), args.limit)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"Index generation failed: {exc}") from exc
+    print(f"Indexed {count:,} documents into {args.output.resolve()}")
