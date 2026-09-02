@@ -114,3 +114,12 @@ body {
     font-weight: bold;
     color: #ff6347;
 }
+
+
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}

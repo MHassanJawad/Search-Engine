@@ -14,7 +14,9 @@
             <button id="searchButton" class="search-button">Search</button>
         </div>
         <div id="loading" class="loading">Searching...</div>
+        <div id="result-info" class="result-info"></div> <!-- Added this div for results count and time -->
         <div id="results" class="results"></div>
+        <div id="pagination" class="pagination"></div>
     </div>
 
     <script>
@@ -22,8 +24,14 @@
         const searchButton = document.getElementById('searchButton');
         const resultsDiv = document.getElementById('results');
         const loadingDiv = document.getElementById('loading');
+        const resultInfoDiv = document.getElementById('result-info'); // New result info div
+        const paginationDiv = document.getElementById('pagination');
 
-        searchButton.addEventListener('click', search);
+        let allResults = []; // Store all search results
+        let currentPage = 1; // Current page number
+        const pageSize = 10; // Number of results per page
+
+        searchButton.addEventListener('click', () => search());
         searchBox.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
                 search();
@@ -31,46 +39,95 @@
         });
 
         async function search() {
-            const query = searchBox.value.trim();
-            if (query.length > 0) {
-                loadingDiv.style.display = 'block';
-                resultsDiv.innerHTML = '';
-                try {
-                    const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
-                    if (!response.ok) throw new Error('Failed to fetch results');
-                    const data = await response.json();
-                    displayResults(data.results);
-                } catch (error) {
-                    console.error(error);
-                    resultsDiv.innerHTML = '<p class="error">An error occurred. Please try again later.</p>';
-                } finally {
-                    loadingDiv.style.display = 'none';
-                }
-            } else {
-                resultsDiv.innerHTML = '<p class="error">Please enter a search term.</p>';
-            }
+    const query = searchBox.value.trim();
+    if (query.length > 0) {
+        loadingDiv.style.display = 'block';
+        resultsDiv.innerHTML = '';
+        resultInfoDiv.innerHTML = ''; // Clear previous result info
+        paginationDiv.innerHTML = '';
+        allResults = []; // Clear previous results
+        currentPage = 1; // Reset to the first page
+
+        const startTime = performance.now(); // Start timing the search
+
+        try {
+            const response = await fetch(`/search?q=${encodeURIComponent(query)}&page=${currentPage}&page_size=${pageSize}`); // Fetch results for the current page
+            if (!response.ok) throw new Error('Failed to fetch results');
+            const data = await response.json();
+            
+            allResults = data.results; // Save results for the current page
+            const totalResults = data.total_results; // Use total_results from the API response
+            
+            const endTime = performance.now(); // End timing the search
+            const timeTaken = ((endTime - startTime) / 1000).toFixed(2); // Time in seconds
+            
+            // Display total results and time taken
+            resultInfoDiv.innerHTML = `<p>${totalResults} results found in ${timeTaken} seconds</p>`;
+
+            displayPage(1); // Display the first page
+        } catch (error) {
+            console.error(error);
+            resultsDiv.innerHTML = '<p class="error">An error occurred. Please try again later.</p>';
+        } finally {
+            loadingDiv.style.display = 'none';
         }
+    } else {
+        resultsDiv.innerHTML = '<p class="error">Please enter a search term.</p>';
+    }
+}
 
-        function displayResults(results) {
-            const resultsCount = results.length;
-            const countText = resultsCount > 0 
-                ? `<p class="results-count">${resultsCount} result(s) found</p>` 
-                : '<p class="no-results">No results found</p>';
 
-            resultsDiv.innerHTML = `
-                ${countText}
-                ${resultsCount > 0 ? results.map(doc => `
+        function displayPage(page) {
+            const startIndex = (page - 1) * pageSize;
+            const endIndex = Math.min(startIndex + pageSize, allResults.length);
+            const resultsForPage = allResults.slice(startIndex, endIndex);
+
+            resultsDiv.innerHTML = resultsForPage.length > 0
+                ? resultsForPage.map(doc => `
                     <div class="result-item">
+                        ${doc.url_to_image ? `<img src="${doc.url_to_image}" alt="Image for ${doc.title}" class="result-image">` : ''}
                         <div class="result-content">
                             <a href="${doc.url}" target="_blank">
                                 <p><strong>${doc.title || 'No Title Available'}</strong></p>
                             </a>
                             <p>${doc.description || 'No Description Available'}</p>
                         </div>
-                    </div>`).join('') : ''}
-            `;
+                    </div>`).join('')
+                : '<p class="no-results">No results found</p>';
+
+            renderPagination();
         }
 
+        function renderPagination() {
+            paginationDiv.innerHTML = '';
+            const totalPages = Math.ceil(allResults.length / pageSize);
+
+            if (totalPages > 1) {
+                if (currentPage > 1) {
+                    const prevButton = createPaginationButton('Previous', () => {
+                        currentPage--;
+                        displayPage(currentPage);
+                    });
+                    paginationDiv.appendChild(prevButton);
+                }
+
+                if (currentPage < totalPages) {
+                    const nextButton = createPaginationButton('Next', () => {
+                        currentPage++;
+                        displayPage(currentPage);
+                    });
+                    paginationDiv.appendChild(nextButton);
+                }
+            }
+        }
+
+        function createPaginationButton(text, onClick) {
+            const button = document.createElement('button');
+            button.innerText = text;
+            button.className = 'pagination-button search-button'; // Same style as search button
+            button.onclick = onClick;
+            return button;
+        }
     </script>
 </body>
 </html>
